@@ -1,0 +1,8 @@
+1. Buat akun & repository baru di github.com (gratis).
+2. Upload seluruh isi folder hq-studio ini (termasuk folder www dan .github).
+3. Buka tab "Actions" > "Build APK" > tunggu ~5 menit sampai hijau.
+4. Klik hasilnya > unduh "HQ-Design-Studio-APK" (zip) > ekstrak > app-debug.apk.
+5. Kirim ke HP Android, aktifkan "Install dari sumber tidak dikenal", lalu install.
+6. Izinkan akses Kamera saat diminta.
+Data tersimpan lokal di HP (IndexedDB). Jangan hapus data aplikasi / uninstall sebelum
+mengekspor CSV & foto.

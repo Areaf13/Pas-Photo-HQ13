@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a"><title>HQ Design & Studio</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#f1f5f9;--mut:#94a3b8;--ac:#f59e0b;--ok:#22c55e;--bad:#ef4444}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,sans-serif;padding-bottom:76px}
+header{padding:calc(14px + env(safe-area-inset-top)) 16px 12px;background:linear-gradient(135deg,#1e293b,#0f172a);border-bottom:2px solid var(--ac)}
+h1{margin:0;font-size:20px;letter-spacing:.5px}h1 span{color:var(--ac)}header p{margin:2px 0 0;color:var(--mut);font-size:13px}
+main{padding:14px;max-width:560px;margin:auto}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px}
+input,select{width:100%;padding:13px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:16px}
+button,.btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--ac);color:#111;font-weight:700;font-size:16px;text-align:center;margin-top:12px}
+.sec{background:var(--card);color:var(--tx);border:1px solid var(--line)}.dng{background:var(--bad);color:#fff}
+.sm{display:inline-block;width:auto;padding:8px 12px;font-size:13px;margin:8px 6px 0 0}
+#prev{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;margin-top:12px;background:#000;display:none}
+.card{display:flex;gap:12px;background:var(--card);border-radius:12px;padding:10px;margin-top:10px;border:1px solid var(--line)}
+.card img{width:72px;height:96px;object-fit:cover;border-radius:8px;flex:none}.card b{display:block}.card small{color:var(--mut)}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0b1220;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{margin:0;border-radius:0;background:none;color:var(--mut);padding:16px 4px;font-size:14px}nav button.on{color:var(--ac);box-shadow:inset 0 3px var(--ac)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.st{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.st b{font-size:24px;display:block;color:var(--ok)}.st.z b{color:var(--mut)}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#000;padding:12px 18px;border-radius:24px;display:none;z-index:9;max-width:90%;text-align:center}
+.hide{display:none}.mut{color:var(--mut);text-align:center;margin-top:30px}
+</style></head><body>
+<header><h1>HQ <span>Design & Studio</span></h1><p>Sesi Pas Foto · SMK IPTEK</p></header>
+<main>
+<section id="p-foto">
+<h3 id="ft" style="margin-bottom:0">Data Siswa Baru</h3>
+<label>Nama</label><input id="nama" autocomplete="off" placeholder="Nama lengkap siswa">
+<label>Kelas</label><select id="kelas"></select>
+<label>Jurusan</label><input id="jur" list="jl" autocomplete="off" placeholder="Contoh: TKJ, RPL, Akuntansi"><datalist id="jl"></datalist>
+<img id="prev" alt="">
+<label class="btn" id="takeBtn" for="cam">📷 Take Photo</label>
+<input id="cam" type="file" accept="image/*" capture="environment" class="hide">
+<button id="save">💾 Simpan</button>
+<button id="cancel" class="sec hide">Batal Edit</button>
+</section>
+<section id="p-data" class="hide">
+<label>Filter Kelas</label><select id="fk"></select>
+<label>Cari Nama</label><input id="q" placeholder="Ketik nama...">
+<div id="list"></div>
+</section>
+<section id="p-rekap" class="hide">
+<div class="st" style="margin-bottom:10px">Total Siswa Difoto<b id="tot">0</b></div>
+<div class="grid" id="grid"></div>
+<button id="csv" class="sec">⬇ Ekspor Data (CSV)</button>
+<button id="zip" class="sec">⬇ Bagikan Semua Foto</button>
+</section>
+</main>
+<div id="toast"></div>
+<nav><button data-t="foto" class="on">📷 Foto</button><button data-t="data">📋 Data</button><button data-t="rekap">📊 Rekap</button></nav>
+<script>
+const $=id=>document.getElementById(id),KELAS=Array.from({length:13},(_,i)=>'12.'+(i+1));
+let db,editId=null,newBlob=null,urls=[],prevUrl=null;
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2500)}
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('hqds',1);
+r.onupgradeneeded=()=>r.result.createObjectStore('s',{keyPath:'id',autoIncrement:true});
+r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function st(mode){return db.transaction('s',mode).objectStore('s')}
+const rq=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const all=()=>rq(st('readonly').getAll());
+function compress(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file),im=new Image();
+im.onload=()=>{const M=1600,s=Math.min(1,M/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');
+c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error('gagal')),'image/jpeg',.9)};
+im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('Foto tidak bisa dibaca'))};im.src=u})}
+function setPrev(blob){if(prevUrl)URL.revokeObjectURL(prevUrl);prevUrl=null;const p=$('prev');
+if(blob){prevUrl=URL.createObjectURL(blob);p.src=prevUrl;p.style.display='block'}else p.style.display='none'}
+async function saveFile(blob,name){
+const f=new File([blob],name,{type:blob.type});
+try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e.name==='AbortError')return}
+const a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Diunduh: '+name)}
+const fname=s=>(s.kelas+'_'+s.nama).replace(/[^\w.\-]+/g,'_')+'.jpg';
+function resetForm(){editId=null;newBlob=null;$('nama').value='';$('jur').value=$('jur').dataset.last||'';$('kelas').selectedIndex=$('kelas').dataset.keep?$('kelas').selectedIndex:0;
+setPrev(null);$('ft').textContent='Data Siswa Baru';$('cancel').classList.add('hide');$('takeBtn').textContent='📷 Take Photo'}
+$('cam').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+try{newBlob=await compress(f);setPrev(newBlob);$('takeBtn').textContent='🔄 Ulangi Foto'}catch(x){toast(x.message)}};
+$('save').onclick=async()=>{
+const nama=$('nama').value.trim().replace(/\s+/g,' '),kelas=$('kelas').value,jur=$('jur').value.trim();
+if(!nama)return toast('Nama wajib diisi');if(!jur)return toast('Jurusan wajib diisi');
+let old=null;if(editId!==null)old=await rq(st('readonly').get(editId));
+const foto=newBlob||(old&&old.foto);if(!foto)return toast('Ambil foto dulu');
+const list=await all();
+if(list.some(s=>s.id!==editId&&s.nama.toLowerCase()===nama.toLowerCase()&&s.kelas===kelas)&&!confirm('Nama sama sudah ada di kelas '+kelas+'. Tetap simpan?'))return;
+const rec={nama,kelas,jurusan:jur,foto,created:old?old.created:Date.now(),updated:Date.now()};if(old)rec.id=old.id;
+try{await rq(st('readwrite').put(rec));$('jur').dataset.last=jur;$('kelas').dataset.keep=1;toast('✅ Tersimpan');
+const wasEdit=editId!==null;resetForm();await refresh();if(wasEdit)tab('data')}catch(e){toast('Gagal menyimpan: '+(e.message||e))}};
+$('cancel').onclick=()=>{resetForm();tab('data')};
+async function render(){urls.forEach(URL.revokeObjectURL);urls=[];
+const fk=$('fk').value,q=$('q').value.trim().toLowerCase();
+let l=(await all()).filter(s=>(!fk||s.kelas===fk)&&(!q||s.nama.toLowerCase().includes(q)));
+l.sort((a,b)=>KELAS.indexOf(a.kelas)-KELAS.indexOf(b.kelas)||a.nama.localeCompare(b.nama));
+const box=$('list');box.innerHTML='';if(!l.length){box.innerHTML='<p class="mut">Belum ada data</p>';return}
+l.forEach(s=>{const u=URL.createObjectURL(s.foto);urls.push(u);const d=document.createElement('div');d.className='card';
+d.innerHTML='<img><div style="flex:1;min-width:0"><b></b><small></small><div></div></div>';
+d.querySelector('img').src=u;d.querySelector('b').textContent=s.nama;d.querySelector('small').textContent='Kelas '+s.kelas+' · '+s.jurusan;
+const a=d.lastChild.lastChild,mk=(t,c,f)=>{const b=document.createElement('button');b.className='sm '+c;b.textContent=t;b.onclick=f;a.appendChild(b)};
+mk('Unduh','sec',()=>saveFile(s.foto,fname(s)));
+mk('Edit','sec',()=>{editId=s.id;newBlob=null;$('nama').value=s.nama;$('kelas').value=s.kelas;$('jur').value=s.jurusan;setPrev(s.foto);
+$('ft').textContent='Edit Data';$('cancel').classList.remove('hide');$('takeBtn').textContent='🔄 Ganti Foto';tab('foto')});
+mk('Hapus','dng',async()=>{if(confirm('Hapus data '+s.nama+'?')){await rq(st('readwrite').delete(s.id));toast('Dihapus');refresh()}});
+box.appendChild(d)})}
+async function rekap(){const l=await all();$('tot').textContent=l.length;
+$('grid').innerHTML=KELAS.map(k=>{const n=l.filter(s=>s.kelas===k).length;return`<div class="st ${n?'':'z'}">${k}<b>${n}</b></div>`}).join('')}
+async function jurList(){const l=await all();$('jl').innerHTML=[...new Set(l.map(s=>s.jurusan))].map(j=>`<option value="${j.replace(/"/g,'&quot;')}">`).join('')}
+async function refresh(){await Promise.all([render(),rekap(),jurList()])}
+$('fk').onchange=render;$('q').oninput=render;
+$('csv').onclick=async()=>{const l=await all();if(!l.length)return toast('Belum ada data');
+const e=v=>'"'+String(v).replace(/"/g,'""')+'"';
+const rows=['No,Nama,Kelas,Jurusan,File Foto,Waktu'].concat(l.sort((a,b)=>KELAS.indexOf(a.kelas)-KELAS.indexOf(b.kelas)||a.nama.localeCompare(b.nama)).map((s,i)=>[i+1,e(s.nama),s.kelas,e(s.jurusan),e(fname(s)),e(new Date(s.created).toLocaleString('id-ID'))].join(',')));
+saveFile(new Blob(['\ufeff'+rows.join('\n')],{type:'text/csv'}),'data_pasfoto_smk_iptek.csv')};
+$('zip').onclick=async()=>{const l=await all();if(!l.length)return toast('Belum ada data');
+const fs=l.map(s=>new File([s.foto],fname(s),{type:'image/jpeg'}));
+try{if(navigator.canShare&&navigator.canShare({files:fs})){await navigator.share({files:fs,title:'Foto SMK IPTEK'});return}}catch(e){if(e.name==='AbortError')return}
+toast('Perangkat tidak mendukung bagikan massal. Gunakan tombol Unduh per foto.')};
+function tab(t){['foto','data','rekap'].forEach(x=>$('p-'+x).classList.toggle('hide',x!==t));
+document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));if(t!=='foto')refresh();scrollTo(0,0)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+$('kelas').innerHTML=KELAS.map(k=>`<option>${k}</option>`).join('');
+$('fk').innerHTML='<option value="">Semua Kelas</option>'+KELAS.map(k=>`<option>${k}</option>`).join('');
+openDB().then(d=>{db=d;if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();refresh()}).catch(e=>{toast('Database gagal dibuka');console.error(e)});
+</script></body></html>
